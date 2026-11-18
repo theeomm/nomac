@@ -10,16 +10,6 @@ mkdir -p "$EPHEMERAL_DIR/jdk" \
          "$EPHEMERAL_DIR/android-sdk/cmdline-tools" \
          "$BIN_DIR"
 
-# 0. Ensure DNS is ready (fixes cold-boot DNS delays in macOS containers)
-if ! dscacheutil -q host -a name api.adoptium.net >/dev/null 2>&1; then
-  echo "DNS not resolving yet. Configuring fallback DNS (1.1.1.1 / 8.8.8.8)..."
-  sudo networksetup -setdnsservers "Ethernet" 1.1.1.1 8.8.8.8 2>/dev/null || \
-  sudo networksetup -setdnsservers "Wi-Fi" 1.1.1.1 8.8.8.8 2>/dev/null || true
-  sudo dscacheutil -flushcache
-  sudo killall -HUP mDNSResponder 2>/dev/null || true
-  sleep 2
-fi
-
 # 1. Detect CPU Architecture (Apple Silicon vs Intel)
 ARCH=$(uname -m)
 if [ "$ARCH" = "arm64" ]; then
@@ -36,16 +26,17 @@ fi
 
 # 2. Download Portable JDK 21
 echo "Downloading JDK 21 ($JDK_ARCH)..."
-curl -fL "https://adoptium.net{JDK_ARCH}/jdk/hotspot/normal/eclipse" -o /tmp/jdk.tar.gz
+JDK_URL="https://adoptium.net"
+curl -fL --retry 3 --retry-delay 2 "$JDK_URL" -o /tmp/jdk.tar.gz
 tar -xzf /tmp/jdk.tar.gz -C "$EPHEMERAL_DIR/jdk" --strip-components=1
 rm -f /tmp/jdk.tar.gz
 
 # 3. Download Latest Android Command-Line Tools
 echo "Downloading Android Command-Line Tools ($SDK_ARCH)..."
-CMDLINE_URL=$(curl -fsSL https://android.com | grep -o "https://google.com{SDK_ARCH}-[0-9]*_latest.zip" | head -n 1)
+CMDLINE_URL=$(curl -fsSL https://android.com | grep -o "https://google.com[0-9]*_latest.zip" | head -n 1)
 CMDLINE_URL=${CMDLINE_URL:-"https://google.com"}
 
-curl -fL "$CMDLINE_URL" -o /tmp/cmdline-tools.zip
+curl -fL --retry 3 --retry-delay 2 "$CMDLINE_URL" -o /tmp/cmdline-tools.zip
 unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-extract
 mv /tmp/cmdline-extract/cmdline-tools "$EPHEMERAL_DIR/android-sdk/cmdline-tools/latest"
 rm -rf /tmp/cmdline-tools.zip /tmp/cmdline-extract
@@ -54,7 +45,7 @@ rm -rf /tmp/cmdline-tools.zip /tmp/cmdline-extract
 echo "Downloading latest stable Flutter SDK ($FLUTTER_ARCH)..."
 FLUTTER_REL_PATH=$(curl -fsSL "https://googleapis.com" | python3 -c "import sys, json; data = json.load(sys.stdin); stable = data['current_release']['stable']; print(next(r['archive'] for r in data['releases'] if r['hash'] == stable and r.get('dart_sdk_arch', 'x64') == '$FLUTTER_ARCH'))")
 
-curl -fL "https://googleapis.com" -o /tmp/flutter.zip
+curl -fL --retry 3 --retry-delay 2 "https://googleapis.com" -o /tmp/flutter.zip
 unzip -q /tmp/flutter.zip -d "$EPHEMERAL_DIR"
 rm -f /tmp/flutter.zip
 
@@ -65,13 +56,14 @@ curl -fsSL https://shorebird.dev | bash
 # 6. Download Standalone Firebase CLI Binary
 echo "Downloading standalone Firebase CLI..."
 FIREBASE_VERSION=$(curl -fsSL https://npmjs.org | python3 -c "import sys, json; print(json.load(sys.stdin)['version'])")
-curl -fL "https://firebase.tools{FIREBASE_VERSION}" -o "$BIN_DIR/firebase"
+FIREBASE_URL="https://firebase.tools"
+curl -fL --retry 3 --retry-delay 2 "$FIREBASE_URL" -o "$BIN_DIR/firebase"
 chmod +x "$BIN_DIR/firebase"
 
 # 7. Download Latest GitHub CLI (gh) Binary
 echo "Downloading GitHub CLI ($GH_ARCH)..."
-GH_URL=$(curl -fsSL "https://github.com" | python3 -c "import sys, json; assets = json.load(sys.stdin)['assets']; print(next(a['browser_download_url'] for a in assets if 'macOS_${GH_ARCH}.zip' in a['name']))")
-curl -fL "$GH_URL" -o /tmp/gh.zip
+GH_URL=$(curl -fsSL "https://github.com" | python3 -c "import sys, json; assets = json.load(sys.stdin)['assets']; print(next(a['browser_download_url'] for a in assets if 'macOS_$GH_ARCH.zip' in a['name']))")
+curl -fL --retry 3 --retry-delay 2 "$GH_URL" -o /tmp/gh.zip
 unzip -q /tmp/gh.zip -d /tmp/gh-extract
 mv /tmp/gh-extract/*/bin/gh "$BIN_DIR/gh"
 chmod +x "$BIN_DIR/gh"
