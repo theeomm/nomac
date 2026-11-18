@@ -10,30 +10,36 @@ mkdir -p "$EPHEMERAL_DIR/jdk" \
          "$EPHEMERAL_DIR/android-sdk/cmdline-tools" \
          "$BIN_DIR"
 
-# 1. Detect CPU Architecture (Apple Silicon vs Intel)
+# 1. Detect CPU Architecture & Assign Complete Literal URLs
 ARCH=$(uname -m)
 if [ "$ARCH" = "arm64" ]; then
-  MS_JDK_ARCH="aarch64"
-  CORRETTO_ARCH="aarch64"
+  MS_JDK_URL="https://aka.ms"
+  CORRETTO_URL="https://corretto.aws"
   SDK_ARCH="mac_arm64"
   FLUTTER_ARCH="arm64"
   GH_ARCH="arm64"
 else
-  MS_JDK_ARCH="x64"
-  CORRETTO_ARCH="x64"
+  MS_JDK_URL="https://aka.ms"
+  CORRETTO_URL="https://corretto.aws"
   SDK_ARCH="mac_x86_64"
   FLUTTER_ARCH="x64"
   GH_ARCH="amd64"
 fi
 
-# 2. Download Portable JDK 21 (Microsoft OpenJDK with Amazon Corretto fallback)
-echo "Downloading Microsoft Build of OpenJDK 21 ($MS_JDK_ARCH)..."
-MS_JDK_URL="https://aka.ms/{MS_JDK_ARCH}.tar.gz"
-CORRETTO_URL="https://corretto.aws/{CORRETTO_ARCH}-macos-jdk.tar.gz"
+# 2. Download Portable JDK 21 & Verify It Is a Valid Gzip Archive
+echo "Downloading Microsoft Build of OpenJDK 21 ($ARCH)..."
+rm -f /tmp/jdk.tar.gz
+curl -fL --retry 3 --retry-delay 2 "$MS_JDK_URL" -o /tmp/jdk.tar.gz || true
 
-if ! curl -fL --retry 3 --retry-delay 2 "$MS_JDK_URL" -o /tmp/jdk.tar.gz; then
-  echo "Microsoft CDN failed, falling back to Amazon Corretto 21..."
+if ! file /tmp/jdk.tar.gz | grep -qi "gzip"; then
+  echo "Primary JDK download invalid or blocked; downloading Amazon Corretto 21..."
+  rm -f /tmp/jdk.tar.gz
   curl -fL --retry 3 --retry-delay 2 "$CORRETTO_URL" -o /tmp/jdk.tar.gz
+fi
+
+if ! file /tmp/jdk.tar.gz | grep -qi "gzip"; then
+  echo "ERROR: Downloaded JDK file is not a valid gzip archive. Check container internet/proxy access."
+  exit 1
 fi
 
 tar -xzf /tmp/jdk.tar.gz -C "$EPHEMERAL_DIR/jdk" --strip-components=1
@@ -116,7 +122,7 @@ if [ -n "$GIT_NAME" ] && [ -n "$GIT_EMAIL" ]; then
   git config --global user.name "$GIT_NAME"
   git config --global user.email "$GIT_EMAIL"
 else
-  echo "Skipping Git user.name/user.email (pass them as arguments: source start.sh \"Name\" \"email\")."
+  echo "Skipping Git user.name/user.email (pass them as arguments: source setup.sh \"Name\" \"email\")."
 fi
 
 if [ -n "$GH_TOKEN" ]; then
