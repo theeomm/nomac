@@ -1,6 +1,6 @@
 # Nomac | Flutter & Android Development Setup
 
-A zero-footprint bootstrap script (`setup.sh`) designed for disposable macOS containers. Only `setup.sh` lives on persistent storage; all SDKs, toolchains, and credentials are downloaded and configured inside `/tmp/dev-tools` on each container startup.
+A zero-footprint bootstrap script (`start.sh`) designed for disposable macOS containers. Only `start.sh` lives on persistent storage; all SDKs, toolchains, and credentials are downloaded and configured inside `/tmp/dev-tools` on each container startup.
 
 ## Installed Tools
 
@@ -19,19 +19,19 @@ The script automatically detects Apple Silicon (`arm64`) or Intel (`x86_64`) and
 Source the script and pass your Git `user.name` and `user.email` as positional arguments. If authentication tokens are omitted, interactive browser login prompts will run where supported:
 
 ```bash
-source "\$HOME/drive/setup.sh" "Your Name" "you@example.com"
+source "\$HOME/drive/nomac/start.sh" "Your Name" "you@example.com"
 ```
 
 > **Note:** Always run with `source` (or `.`) so exported `PATH` and environment variables apply immediately to your active terminal session.
 
 ### 2. Headless / Non-Interactive Setup (With Tokens)
-Pass your authentication tokens as environment variables before sourcing `setup.sh`:
+Pass your authentication tokens as environment variables before sourcing `start.sh`:
 
 ```bash
 GH_TOKEN="ghp_your_github_token" \
 SHOREBIRD_TOKEN="sb_api_your_shorebird_token" \
 FIREBASE_SERVICE_ACCOUNT_BASE64="\$(base64 -i path/to/service-account.json)" \
-source "\$HOME/drive/setup.sh" "Your Name" "you@example.com"
+source "\$HOME/drive/nomac/start.sh" "Your Name" "you@example.com"
 ```
 
 ## Environment Variables Reference
@@ -49,4 +49,3 @@ source "\$HOME/drive/setup.sh" "Your Name" "you@example.com"
 | :--- | :--- | :--- | :--- |
 | **`$1`** | `GIT_NAME` | `"Jane Doe"` | Sets `git config --global user.name`. |
 | **`$2`** | `GIT_EMAIL` | `"jane@example.com"` | Sets `git config --global user.email`. |
-

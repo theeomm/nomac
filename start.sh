@@ -116,7 +116,7 @@ if [ -n "$GIT_NAME" ] && [ -n "$GIT_EMAIL" ]; then
   git config --global user.name "$GIT_NAME"
   git config --global user.email "$GIT_EMAIL"
 else
-  echo "Skipping Git user.name/user.email (pass them as arguments: source setup.sh \"Name\" \"email\")."
+  echo "Skipping Git user.name/user.email (pass them as arguments: source start.sh \"Name\" \"email\")."
 fi
 
 if [ -n "$GH_TOKEN" ]; then
