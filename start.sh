@@ -28,8 +28,8 @@ fi
 
 # 2. Download Portable JDK 21 (Microsoft OpenJDK with Amazon Corretto fallback)
 echo "Downloading Microsoft Build of OpenJDK 21 ($MS_JDK_ARCH)..."
-MS_JDK_URL="https://aka.ms{MS_JDK_ARCH}.tar.gz"
-CORRETTO_URL="https://corretto.aws{CORRETTO_ARCH}-macos-jdk.tar.gz"
+MS_JDK_URL="https://aka.ms/{MS_JDK_ARCH}.tar.gz"
+CORRETTO_URL="https://corretto.aws/{CORRETTO_ARCH}-macos-jdk.tar.gz"
 
 if ! curl -fL --retry 3 --retry-delay 2 "$MS_JDK_URL" -o /tmp/jdk.tar.gz; then
   echo "Microsoft CDN failed, falling back to Amazon Corretto 21..."
