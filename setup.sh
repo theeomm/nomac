@@ -10,6 +10,16 @@ mkdir -p "$EPHEMERAL_DIR/jdk" \
          "$EPHEMERAL_DIR/android-sdk/cmdline-tools" \
          "$BIN_DIR"
 
+# 0. Ensure DNS is ready (fixes cold-boot DNS delays in macOS containers)
+if ! dscacheutil -q host -a name api.adoptium.net >/dev/null 2>&1; then
+  echo "DNS not resolving yet. Configuring fallback DNS (1.1.1.1 / 8.8.8.8)..."
+  sudo networksetup -setdnsservers "Ethernet" 1.1.1.1 8.8.8.8 2>/dev/null || \
+  sudo networksetup -setdnsservers "Wi-Fi" 1.1.1.1 8.8.8.8 2>/dev/null || true
+  sudo dscacheutil -flushcache
+  sudo killall -HUP mDNSResponder 2>/dev/null || true
+  sleep 2
+fi
+
 # 1. Detect CPU Architecture (Apple Silicon vs Intel)
 ARCH=$(uname -m)
 if [ "$ARCH" = "arm64" ]; then
