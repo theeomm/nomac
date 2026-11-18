@@ -10,40 +10,49 @@ mkdir -p "$EPHEMERAL_DIR/jdk" \
          "$EPHEMERAL_DIR/android-sdk/cmdline-tools" \
          "$BIN_DIR"
 
-# 1. Detect CPU Architecture & Assign Complete Literal URLs
+# 1. Detect CPU Architecture
 ARCH=$(uname -m)
 if [ "$ARCH" = "arm64" ]; then
-  MS_JDK_URL="https://aka.ms"
-  CORRETTO_URL="https://corretto.aws"
+  GH_JDK_PATTERN="OpenJDK21U-jdk_aarch64_mac_hotspot_.*\\.tar\\.gz$"
   SDK_ARCH="mac_arm64"
   FLUTTER_ARCH="arm64"
   GH_ARCH="arm64"
 else
-  MS_JDK_URL="https://aka.ms"
-  CORRETTO_URL="https://corretto.aws"
+  GH_JDK_PATTERN="OpenJDK21U-jdk_x64_mac_hotspot_.*\\.tar\\.gz$"
   SDK_ARCH="mac_x86_64"
   FLUTTER_ARCH="x64"
   GH_ARCH="amd64"
 fi
 
-# 2. Download Portable JDK 21 & Verify It Is a Valid Gzip Archive
-echo "Downloading Microsoft Build of OpenJDK 21 ($ARCH)..."
+# 2. Download Portable JDK 21 directly from GitHub Releases
+echo "Fetching JDK 21 release URL from GitHub ($ARCH)..."
 rm -f /tmp/jdk.tar.gz
-curl -fL --retry 3 --retry-delay 2 "$MS_JDK_URL" -o /tmp/jdk.tar.gz || true
 
-if ! file /tmp/jdk.tar.gz | grep -qi "gzip"; then
-  echo "Primary JDK download invalid or blocked; downloading Amazon Corretto 21..."
-  rm -f /tmp/jdk.tar.gz
-  curl -fL --retry 3 --retry-delay 2 "$CORRETTO_URL" -o /tmp/jdk.tar.gz
+JDK_URL=$(curl -fsSL "https://github.com" | python3 -c "
+import sys, json, re
+assets = json.load(sys.stdin).get('assets', [])
+pattern = re.compile(r'$GH_JDK_PATTERN')
+print(next((a['browser_download_url'] for a in assets if pattern.search(a['name'])), ''))
+")
+
+if [ -z "$JDK_URL" ]; then
+  echo "ERROR: Could not fetch JDK URL from GitHub API. Check internet/DNS or GitHub rate limits."
+  exit 1
 fi
 
+echo "Downloading JDK 21 from: $JDK_URL"
+curl -fSL --retry 3 --retry-delay 2 "$JDK_URL" -o /tmp/jdk.tar.gz
+
 if ! file /tmp/jdk.tar.gz | grep -qi "gzip"; then
-  echo "ERROR: Downloaded JDK file is not a valid gzip archive. Check container internet/proxy access."
+  echo "ERROR: Downloaded file is not a valid gzip archive. File info:"
+  file /tmp/jdk.tar.gz
+  head -c 300 /tmp/jdk.tar.gz
   exit 1
 fi
 
 tar -xzf /tmp/jdk.tar.gz -C "$EPHEMERAL_DIR/jdk" --strip-components=1
 rm -f /tmp/jdk.tar.gz
+
 
 # 3. Download Latest Android Command-Line Tools
 echo "Downloading Android Command-Line Tools ($SDK_ARCH)..."
