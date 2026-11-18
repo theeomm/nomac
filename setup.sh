@@ -13,21 +13,29 @@ mkdir -p "$EPHEMERAL_DIR/jdk" \
 # 1. Detect CPU Architecture (Apple Silicon vs Intel)
 ARCH=$(uname -m)
 if [ "$ARCH" = "arm64" ]; then
-  JDK_ARCH="aarch64"
+  MS_JDK_ARCH="aarch64"
+  CORRETTO_ARCH="aarch64"
   SDK_ARCH="mac_arm64"
   FLUTTER_ARCH="arm64"
   GH_ARCH="arm64"
 else
-  JDK_ARCH="x64"
+  MS_JDK_ARCH="x64"
+  CORRETTO_ARCH="x64"
   SDK_ARCH="mac_x86_64"
   FLUTTER_ARCH="x64"
   GH_ARCH="amd64"
 fi
 
-# 2. Download Portable JDK 21
-echo "Downloading JDK 21 ($JDK_ARCH)..."
-JDK_URL="https://adoptium.net"
-curl -fL --retry 3 --retry-delay 2 "$JDK_URL" -o /tmp/jdk.tar.gz
+# 2. Download Portable JDK 21 (Microsoft OpenJDK with Amazon Corretto fallback)
+echo "Downloading Microsoft Build of OpenJDK 21 ($MS_JDK_ARCH)..."
+MS_JDK_URL="https://aka.ms{MS_JDK_ARCH}.tar.gz"
+CORRETTO_URL="https://corretto.aws{CORRETTO_ARCH}-macos-jdk.tar.gz"
+
+if ! curl -fL --retry 3 --retry-delay 2 "$MS_JDK_URL" -o /tmp/jdk.tar.gz; then
+  echo "Microsoft CDN failed, falling back to Amazon Corretto 21..."
+  curl -fL --retry 3 --retry-delay 2 "$CORRETTO_URL" -o /tmp/jdk.tar.gz
+fi
+
 tar -xzf /tmp/jdk.tar.gz -C "$EPHEMERAL_DIR/jdk" --strip-components=1
 rm -f /tmp/jdk.tar.gz
 
