@@ -11,9 +11,11 @@ echo "Installing core toolchains via Homebrew..."
 HOMEBREW_NO_AUTO_UPDATE=1 brew install openjdk@21 gh firebase-cli
 HOMEBREW_NO_AUTO_UPDATE=1 brew install --cask flutter android-commandlinetools
 
-# 2. Install Shorebird CLI (Official Raw GitHub Installer)
+# 2. Install Shorebird CLI (Direct Git Clone + Bootstrap)
 echo "Installing Shorebird CLI..."
-curl -fsSL https://githubusercontent.com | bash
+rm -rf "$HOME/.shorebird"
+git clone -b stable https://github.com/shorebirdtech/shorebird.git "$HOME/.shorebird"
+"$HOME/.shorebird/bin/shorebird" --version
 
 # 3. Configure Environment Variables & PATH
 export JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home"
@@ -35,10 +37,10 @@ export PATH="\$JAVA_HOME/bin:\$HOME/.shorebird/bin:\$HOME/.pub-cache/bin:\$ANDRO
 EOF
 fi
 
-# 4. Install Android SDK Packages & Accept Licenses
-echo "Installing Android SDK packages..."
+# 4. Install Android SDK 36 Packages & Accept Licenses
+echo "Installing Android SDK 36 packages..."
 yes | sdkmanager --licenses >/dev/null 2>&1 || true
-sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
 # 5. Configure Flutter & Activate FlutterFire CLI
 echo "Configuring Flutter and activating FlutterFire CLI..."
@@ -61,7 +63,7 @@ gh auth setup-git
 if [ -n "$SHOREBIRD_TOKEN" ]; then
   export SHOREBIRD_TOKEN
   echo "Shorebird authenticated via SHOREBIRD_TOKEN."
-  shorebird auth status || true
+  shorebird doctor || true
 fi
 
 if [ -n "$FIREBASE_SERVICE_ACCOUNT_BASE64" ]; then
