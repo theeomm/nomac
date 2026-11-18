@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -e
+
+export EPHEMERAL_DIR="/tmp/dev-tools"
+export BIN_DIR="$EPHEMERAL_DIR/bin"
+mkdir -p "$EPHEMERAL_DIR/jdk" \
+         "$EPHEMERAL_DIR/android-sdk/cmdline-tools" \
+         "$BIN_DIR"
+
+# 1. Detect CPU Architecture (Apple Silicon vs Intel)
+ARCH=$(uname -m)
+if [ "$ARCH" = "arm64" ]; then
+  JDK_ARCH="aarch64"
+  SDK_ARCH="mac_arm64"
+  FLUTTER_ARCH="arm64"
+  GH_ARCH="arm64"
+else
+  JDK_ARCH="x64"
+  SDK_ARCH="mac_x86_64"
+  FLUTTER_ARCH="x64"
+  GH_ARCH="amd64"
+fi
+
+# 2. Download Portable JDK 21
+echo "Downloading JDK 21 ($JDK_ARCH)..."
+curl -fL "https://adoptium.net{JDK_ARCH}/jdk/hotspot/normal/eclipse" -o /tmp/jdk.tar.gz
+tar -xzf /tmp/jdk.tar.gz -C "$EPHEMERAL_DIR/jdk" --strip-components=1
+rm -f /tmp/jdk.tar.gz
+
+# 3. Download Latest Android Command-Line Tools
+echo "Downloading Android Command-Line Tools ($SDK_ARCH)..."
+CMDLINE_URL=$(curl -fsSL https://android.com | grep -o "https://google.com{SDK_ARCH}-[0-9]*_latest.zip" | head -n 1)
+CMDLINE_URL=${CMDLINE_URL:-"https://google.com"}
+
+curl -fL "$CMDLINE_URL" -o /tmp/cmdline-tools.zip
+unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-extract
+mv /tmp/cmdline-extract/cmdline-tools "$EPHEMERAL_DIR/android-sdk/cmdline-tools/latest"
+rm -rf /tmp/cmdline-tools.zip /tmp/cmdline-extract
+
+# 4. Download Latest Stable Flutter SDK
+echo "Downloading latest stable Flutter SDK ($FLUTTER_ARCH)..."
+FLUTTER_REL_PATH=$(curl -fsSL "https://googleapis.com" | python3 -c "import sys, json; data = json.load(sys.stdin); stable = data['current_release']['stable']; print(next(r['archive'] for r in data['releases'] if r['hash'] == stable and r.get('dart_sdk_arch', 'x64') == '$FLUTTER_ARCH'))")
+
+curl -fL "https://googleapis.com" -o /tmp/flutter.zip
+unzip -q /tmp/flutter.zip -d "$EPHEMERAL_DIR"
+rm -f /tmp/flutter.zip
+
+# 5. Download Shorebird CLI
+echo "Downloading Shorebird CLI..."
+curl -fsSL https://shorebird.dev | bash
+
+# 6. Download Standalone Firebase CLI Binary
+echo "Downloading standalone Firebase CLI..."
+FIREBASE_VERSION=$(curl -fsSL https://npmjs.org | python3 -c "import sys, json; print(json.load(sys.stdin)['version'])")
+curl -fL "https://firebase.tools{FIREBASE_VERSION}" -o "$BIN_DIR/firebase"
+chmod +x "$BIN_DIR/firebase"
+
+# 7. Download Latest GitHub CLI (gh) Binary
+echo "Downloading GitHub CLI ($GH_ARCH)..."
+GH_URL=$(curl -fsSL "https://github.com" | python3 -c "import sys, json; assets = json.load(sys.stdin)['assets']; print(next(a['browser_download_url'] for a in assets if 'macOS_${GH_ARCH}.zip' in a['name']))")
+curl -fL "$GH_URL" -o /tmp/gh.zip
+unzip -q /tmp/gh.zip -d /tmp/gh-extract
+mv /tmp/gh-extract/*/bin/gh "$BIN_DIR/gh"
+chmod +x "$BIN_DIR/gh"
+rm -rf /tmp/gh.zip /tmp/gh-extract
+
+# 8. Export Environment Variables & Inject Paths
+export JAVA_HOME="$EPHEMERAL_DIR/jdk/Contents/Home"
+export ANDROID_HOME="$EPHEMERAL_DIR/android-sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export FLUTTER_ROOT="$EPHEMERAL_DIR/flutter"
+export PUB_CACHE="$HOME/.pub-cache"
+
+export PATH="$JAVA_HOME/bin:$FLUTTER_ROOT/bin:$HOME/.shorebird/bin:$HOME/.pub-cache/bin:$BIN_DIR:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+
+# Persist exports in ~/.zshrc for any new shell sessions in this container
+if ! grep -q "EPHEMERAL_DIR=\"/tmp/dev-tools\"" "$HOME/.zshrc" 2>/dev/null; then
+  cat << 'EOF' >> "$HOME/.zshrc"
+export EPHEMERAL_DIR="/tmp/dev-tools"
+export BIN_DIR="$EPHEMERAL_DIR/bin"
+export JAVA_HOME="$EPHEMERAL_DIR/jdk/Contents/Home"
+export ANDROID_HOME="$EPHEMERAL_DIR/android-sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export FLUTTER_ROOT="$EPHEMERAL_DIR/flutter"
+export PUB_CACHE="$HOME/.pub-cache"
+export PATH="$JAVA_HOME/bin:$FLUTTER_ROOT/bin:$HOME/.shorebird/bin:$HOME/.pub-cache/bin:$BIN_DIR:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+EOF
+fi
+
+# 9. Install Android SDK Packages & Accept Licenses
+echo "Installing Android SDK packages..."
+yes | sdkmanager --licenses >/dev/null 2>&1 || true
+sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+# 10. Configure Flutter & Activate FlutterFire CLI
+echo "Configuring Flutter and activating FlutterFire CLI..."
+flutter config --android-sdk "$ANDROID_HOME"
+dart pub global activate flutterfire_cli
+
+# 11. Helper function to configure Git & GitHub CLI after bootstrap
+setup_git() {
+  local git_name="$1"
+  local git_email="$2"
+
+  if [ -z "$git_name" ]; then
+    read -r -p "Enter Git user.name: " git_name
+  fi
+  if [ -z "$git_email" ]; then
+    read -r -p "Enter Git user.email: " git_email
+  fi
+
+  git config --global user.name "$git_name"
+  git config --global user.email "$git_email"
+
+  # Authenticate via GH_TOKEN if set, otherwise launch interactive browser/device login
+  if [ -n "$GH_TOKEN" ]; then
+    echo "Authenticating GitHub CLI using GH_TOKEN..."
+  else
+    gh auth login -p https -w
+  fi
+
+  gh auth setup-git
+  echo "Git configured for '$git_name <$git_email>' and linked to GitHub CLI."
+}
+
+echo "Setup complete! Run: setup_git \"Your Name\" \"you@example.com\""
