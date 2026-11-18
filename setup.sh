@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+GIT_NAME="$1"
+GIT_EMAIL="$2"
+
 export EPHEMERAL_DIR="/tmp/dev-tools"
 export BIN_DIR="$EPHEMERAL_DIR/bin"
 mkdir -p "$EPHEMERAL_DIR/jdk" \
@@ -73,7 +76,7 @@ export PUB_CACHE="$HOME/.pub-cache"
 
 export PATH="$JAVA_HOME/bin:$FLUTTER_ROOT/bin:$HOME/.shorebird/bin:$HOME/.pub-cache/bin:$BIN_DIR:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
-# Persist exports in ~/.zshrc for any new shell sessions in this container
+# Persist exports in ~/.zshrc for new terminal tabs
 if ! grep -q "EPHEMERAL_DIR=\"/tmp/dev-tools\"" "$HOME/.zshrc" 2>/dev/null; then
   cat << 'EOF' >> "$HOME/.zshrc"
 export EPHEMERAL_DIR="/tmp/dev-tools"
@@ -97,30 +100,41 @@ echo "Configuring Flutter and activating FlutterFire CLI..."
 flutter config --android-sdk "$ANDROID_HOME"
 dart pub global activate flutterfire_cli
 
-# 11. Helper function to configure Git & GitHub CLI after bootstrap
-setup_git() {
-  local git_name="$1"
-  local git_email="$2"
+# 11. Configure Git & Authenticate GitHub CLI
+if [ -n "$GIT_NAME" ] && [ -n "$GIT_EMAIL" ]; then
+  echo "Configuring Git identity for $GIT_NAME <$GIT_EMAIL>..."
+  git config --global user.name "$GIT_NAME"
+  git config --global user.email "$GIT_EMAIL"
+else
+  echo "Skipping Git user.name/user.email (pass them as arguments: source setup.sh \"Name\" \"email\")."
+fi
 
-  if [ -z "$git_name" ]; then
-    read -r -p "Enter Git user.name: " git_name
-  fi
-  if [ -z "$git_email" ]; then
-    read -r -p "Enter Git user.email: " git_email
-  fi
+if [ -n "$GH_TOKEN" ]; then
+  echo "Authenticating GitHub CLI via GH_TOKEN..."
+else
+  echo "Starting interactive GitHub CLI authentication..."
+  gh auth login -p https -w
+fi
+gh auth setup-git
 
-  git config --global user.name "$git_name"
-  git config --global user.email "$git_email"
+# 12. Authenticate Shorebird & Firebase
+if [ -n "$SHOREBIRD_TOKEN" ]; then
+  export SHOREBIRD_TOKEN
+  echo "Shorebird authenticated via SHOREBIRD_TOKEN."
+  shorebird auth status || true
+else
+  echo "SHOREBIRD_TOKEN not set; run 'shorebird login' manually if needed."
+fi
 
-  # Authenticate via GH_TOKEN if set, otherwise launch interactive browser/device login
-  if [ -n "$GH_TOKEN" ]; then
-    echo "Authenticating GitHub CLI using GH_TOKEN..."
-  else
-    gh auth login -p https -w
-  fi
+if [ -n "$FIREBASE_SERVICE_ACCOUNT_BASE64" ]; then
+  echo "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 --decode > "$EPHEMERAL_DIR/firebase-sa.json"
+  export GOOGLE_APPLICATION_CREDENTIALS="$EPHEMERAL_DIR/firebase-sa.json"
+  echo "Firebase authenticated via GOOGLE_APPLICATION_CREDENTIALS."
+elif [ -n "$FIREBASE_TOKEN" ]; then
+  export FIREBASE_TOKEN
+  echo "Firebase authenticated via FIREBASE_TOKEN."
+else
+  echo "No Firebase token provided; run 'firebase login' manually if needed."
+fi
 
-  gh auth setup-git
-  echo "Git configured for '$git_name <$git_email>' and linked to GitHub CLI."
-}
-
-echo "Setup complete! Run: setup_git \"Your Name\" \"you@example.com\""
+echo "Setup complete!"
