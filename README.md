@@ -19,7 +19,7 @@ The script automatically detects Apple Silicon (`arm64`) or Intel (`x86_64`) and
 Source the script and pass your Git `user.name` and `user.email` as positional arguments. If authentication tokens are omitted, interactive browser login prompts will run where supported:
 
 ```bash
-source "\$HOME/drive/nomac/start.sh" "Your Name" "you@example.com"
+source "$HOME/drive/nomac/start.sh" "Your Name" "you@example.com"
 ```
 
 > **Note:** Always run with `source` (or `.`) so exported `PATH` and environment variables apply immediately to your active terminal session.
@@ -31,7 +31,7 @@ Pass your authentication tokens as environment variables before sourcing `start.
 GH_TOKEN="ghp_your_github_token" \
 SHOREBIRD_TOKEN="sb_api_your_shorebird_token" \
 FIREBASE_SERVICE_ACCOUNT_BASE64="\$(base64 -i path/to/service-account.json)" \
-source "\$HOME/drive/nomac/start.sh" "Your Name" "you@example.com"
+source "$HOME/drive/nomac/start.sh" "Your Name" "you@example.com"
 ```
 
 ## Environment Variables Reference
