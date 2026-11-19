@@ -17,7 +17,7 @@ fi
 
 PROJECT_FOLDER="$(basename "$PWD")"
 REMOTE_PROJECT_DIR="\$HOME/drive/src/${PROJECT_FOLDER}"
-SETUP_REPO="https://github.com"
+SETUP_REPO="https://github.com/theeomm/nomac"
 
 echo "==> 1. Starting or reconnecting to NoMac instance..."
 nomac start

@@ -22,7 +22,7 @@ $ErrorActionPreference = "Stop"
 
 $ProjectFolder = Split-Path -Leaf (Get-Location)
 $RemoteProjectDir = "`$HOME/drive/src/$ProjectFolder"
-$SetupRepo = "https://github.com"
+$SetupRepo = "https://github.com/theeomm/nomac"
 
 Write-Host "==> 1. Starting or reconnecting to NoMac instance..." -ForegroundColor Cyan
 nomac start
