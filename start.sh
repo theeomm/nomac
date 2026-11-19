@@ -1,89 +1,121 @@
-#!/usr/bin/env bash
-# Ephemeral macOS Flutter Development Environment Setup (nomac)
-# Zero-footprint: installs all SDKs and tools onto the container's ephemeral disk.
-
-# Do not use `set -e` so sourcing this script never kills the user's SSH session on minor warnings.
+#!/usr/bin/env zsh
+# Persistent macOS Flutter Development Environment Setup for NoMac
+# Usage: source "$HOME/drive/nomac/start.sh" "Your Name" "you@example.com" "https://github.com"
 
 GIT_NAME="${1:-}"
 GIT_EMAIL="${2:-}"
-TARGET_ARG="${3:-}"
+TARGET_REPO="${3:-$REPO_URL}"
 
-# Support passing either a Git URL or a local synced directory path as $3
-if [[ -n "$TARGET_ARG" ]]; then
-  if [[ -d "$TARGET_ARG" ]]; then
-    LOCAL_DIR="$TARGET_ARG"
+# 1. Persistent Directories in ~/drive/tools
+TOOLS_ROOT="$HOME/drive/tools"
+BREW_PREFIX="$TOOLS_ROOT/homebrew"
+ANDROID_ROOT="$TOOLS_ROOT/android-sdk"
+SHOREBIRD_DIR="$TOOLS_ROOT/shorebird"
+PUB_CACHE_DIR="$TOOLS_ROOT/pub-cache"
+GRADLE_CACHE_DIR="$TOOLS_ROOT/gradle"
+COCOAPODS_CACHE_DIR="$TOOLS_ROOT/cocoapods"
+CACHE_DIR="$TOOLS_ROOT/caches"
+
+mkdir -p "$BREW_PREFIX" "$ANDROID_ROOT" "$PUB_CACHE_DIR" "$GRADLE_CACHE_DIR" "$COCOAPODS_CACHE_DIR" "$CACHE_DIR"
+
+# 2. Export Persistent Environment Variables
+export HOMEBREW_CACHE="$CACHE_DIR/homebrew"
+export HOMEBREW_NO_AUTO_UPDATE=1
+export PUB_CACHE="$PUB_CACHE_DIR"
+export GRADLE_USER_HOME="$GRADLE_CACHE_DIR"
+export CP_HOME_DIR="$COCOAPODS_CACHE_DIR"
+export ANDROID_HOME="$ANDROID_ROOT"
+export ANDROID_SDK_ROOT="$ANDROID_ROOT"
+
+# Symlink standard home cache paths to ~/drive/tools
+rm -rf "$HOME/.pub-cache" "$HOME/.gradle"
+ln -sfn "$PUB_CACHE_DIR" "$HOME/.pub-cache"
+ln -sfn "$GRADLE_CACHE_DIR" "$HOME/.gradle"
+
+mkdir -p "$HOME/Library/Caches"
+rm -rf "$HOME/Library/Caches/CocoaPods"
+ln -sfn "$COCOAPODS_CACHE_DIR" "$HOME/Library/Caches/CocoaPods"
+
+# 3. Install or Load Persistent Homebrew in ~/drive/tools/homebrew
+if [[ ! -x "$BREW_PREFIX/bin/brew" ]]; then
+  echo "Installing persistent Homebrew into $BREW_PREFIX..."
+  git clone --depth=1 https://github.com "$BREW_PREFIX"
+fi
+eval "$("$BREW_PREFIX/bin/brew" shellenv)"
+
+# 4. Install Core Toolchains (Skipped if already persisted)
+BREW_PACKAGES=(
+  "openjdk@21"
+  "android-commandlinetools"
+  "flutter"
+  "firebase-cli"
+  "gh"
+)
+
+for pkg in "${BREW_PACKAGES[@]}"; do
+  if ! brew list "$pkg" &>/dev/null; then
+    echo "Installing $pkg..."
+    brew install "$pkg"
   else
-    REPO_URL="$TARGET_ARG"
+    echo "$pkg already persisted in $BREW_PREFIX."
   fi
+done
+
+# Configure OpenJDK 21 & Android SDK Paths
+export JAVA_HOME="$BREW_PREFIX/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$BREW_PREFIX/share/android-commandlinetools/cmdline-tools/latest/bin:$PATH"
+
+if [[ ! -d "$ANDROID_HOME/platforms/android-36" ]]; then
+  echo "Installing Android SDK components..."
+  yes | sdkmanager --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-36" "build-tools;36.0.0" >/dev/null
+  yes | flutter doctor --android-licenses >/dev/null
 fi
 
-CLONE_DIR="${CLONE_DIR:-$HOME}"
-TOOLS_DIR="/tmp/dev-tools"
-mkdir -p "$TOOLS_DIR"
+# 5. Clone & Bootstrap Shorebird in ~/drive/tools/shorebird
+if [[ ! -d "$SHOREBIRD_DIR/.git" ]]; then
+  echo "Cloning Shorebird into $SHOREBIRD_DIR..."
+  git clone https://github.com -b stable "$SHOREBIRD_DIR"
+fi
 
-echo "==> Configuring Git..."
+export PATH="$SHOREBIRD_DIR/bin:$PUB_CACHE_DIR/bin:$PATH"
+if [[ ! -f "$SHOREBIRD_DIR/bin/cache/shorebird.snapshot" ]]; then
+  echo "Bootstrapping Shorebird CLI..."
+  shorebird --version
+fi
+
+# 6. Activate FlutterFire CLI (Cached in ~/drive/tools/pub-cache)
+if ! command -v flutterfire &>/dev/null; then
+  echo "Activating FlutterFire CLI..."
+  dart pub global activate flutterfire_cli
+fi
+
+# 7. Configure Git & Authentication (Ephemeral for security)
 [[ -n "$GIT_NAME" ]] && git config --global user.name "$GIT_NAME"
 [[ -n "$GIT_EMAIL" ]] && git config --global user.email "$GIT_EMAIL"
 
-echo "==> Installing Homebrew packages (OpenJDK 21, Android CLI, Flutter, Firebase, GitHub CLI)..."
-export HOMEBREW_NO_AUTO_UPDATE=1
-brew install --cask flutter 2>/dev/null || brew upgrade --cask flutter 2>/dev/null || true
-brew install openjdk@21 android-commandlinetools firebase-cli gh 2>/dev/null || true
-
-# Configure Java & Android SDK paths
-if [[ -d "/opt/homebrew/opt/openjdk@21" ]]; then
-  export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
-  export ANDROID_HOME="/opt/homebrew/share/android-commandlinetools"
-else
-  export JAVA_HOME="/usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
-  export ANDROID_HOME="/usr/local/share/android-commandlinetools"
+if [[ -n "$GH_TOKEN" ]]; then
+  gh auth setup-git
+elif ! gh auth status &>/dev/null; then
+  gh auth login
+  gh auth setup-git
 fi
 
-export PATH="$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$HOME/.pub-cache/bin:$PATH"
-
-echo "==> Provisioning Android SDK components..."
-if command -v sdkmanager >/dev/null 2>&1; then
-  yes | sdkmanager --licenses >/dev/null 2>&1 || true
-  sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" >/dev/null 2>&1 || true
+if [[ -n "$FIREBASE_SERVICE_ACCOUNT_BASE64" ]]; then
+  mkdir -p /tmp/dev-tools
+  echo "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 --decode > /tmp/dev-tools/firebase-sa.json
+  export GOOGLE_APPLICATION_CREDENTIALS="/tmp/dev-tools/firebase-sa.json"
 fi
 
-echo "==> Installing Shorebird CLI..."
-if [[ ! -d "$TOOLS_DIR/shorebird" ]]; then
-  git clone https://github.com/shorebirdtech/shorebird -b stable "$TOOLS_DIR/shorebird" >/dev/null 2>&1
-fi
-export PATH="$TOOLS_DIR/shorebird/bin:$PATH"
-shorebird --version >/dev/null 2>&1 || true
-
-echo "==> Activating FlutterFire CLI..."
-dart pub global activate flutterfire_cli >/dev/null 2>&1 || true
-
-echo "==> Authenticating CLI services..."
-if [[ -n "${GH_TOKEN:-}" ]]; then
-  echo "$GH_TOKEN" | gh auth login --with-token 2>/dev/null && gh auth setup-git
-fi
-
-if [[ -n "${FIREBASE_SERVICE_ACCOUNT_BASE64:-}" ]]; then
-  echo "$FIREBASE_SERVICE_ACCOUNT_BASE64" | base64 -d > "$TOOLS_DIR/firebase-sa.json"
-  export GOOGLE_APPLICATION_CREDENTIALS="$TOOLS_DIR/firebase-sa.json"
-fi
-
-if [[ -n "${SHOREBIRD_TOKEN:-}" ]]; then
-  export SHOREBIRD_TOKEN
-  echo "SHOREBIRD_TOKEN exported for headless releases/patches."
-fi
-
-# Workspace resolution: Local synced directory vs. Git clone
-if [[ -n "${LOCAL_DIR:-}" && -d "$LOCAL_DIR" ]]; then
-  echo "==> Entering local synced project: $LOCAL_DIR"
-  cd "$LOCAL_DIR" || return
-  [[ -f "pubspec.yaml" ]] && flutter pub get
-elif [[ -n "${REPO_URL:-}" ]]; then
-  REPO_NAME="$(basename "$REPO_URL" .git)"
-  DEST_PATH="$CLONE_DIR/$REPO_NAME"
-  echo "==> Cloning $REPO_URL into $DEST_PATH..."
-  git clone "$REPO_URL" "$DEST_PATH"
-  cd "$DEST_PATH" || return
+# 8. Clone or Enter Project Repository
+if [[ -n "$TARGET_REPO" ]]; then
+  if [[ -d "$TARGET_REPO" ]]; then
+    cd "$TARGET_REPO" || return
+  else
+    DEST_DIR="${CLONE_DIR:-$HOME}/$(basename "$TARGET_REPO" .git)"
+    [[ ! -d "$DEST_DIR" ]] && git clone "$TARGET_REPO" "$DEST_DIR"
+    cd "$DEST_DIR" || return
+  fi
   [[ -f "pubspec.yaml" ]] && flutter pub get
 fi
 
-echo "==> Ephemeral macOS Flutter environment ready!"
+echo "Persistent environment ready in $TOOLS_ROOT."
