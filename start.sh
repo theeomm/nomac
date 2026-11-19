@@ -16,7 +16,7 @@ HOMEBREW_NO_AUTO_UPDATE=1 brew install --cask flutter android-commandlinetools
 # 2. Install Shorebird CLI (Direct Git Clone + Bootstrap)
 echo "Installing Shorebird CLI..."
 rm -rf "$HOME/.shorebird"
-git clone -b stable https://github.com "$HOME/.shorebird"
+git clone -b stable https://github.com/shorebirdtech/shorebird.git "$HOME/.shorebird"
 "$HOME/.shorebird/bin/shorebird" --version
 
 # 3. Configure Environment Variables & PATH
