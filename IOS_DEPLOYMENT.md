@@ -74,7 +74,7 @@ nomac ssh
 Navigate to your synced project directory:
 
 ```bash
-cd "\$HOME/drive/src/(ls "HOME/drive/src" | head -n 1)"
+cd "$HOME/drive/src/(ls "HOME/drive/src" | head -n 1)"
 ```
 
 ### 1. Generate Signing Certificates & `ExportOptions.plist`
