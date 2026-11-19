@@ -33,6 +33,17 @@ FIREBASE_SERVICE_ACCOUNT_BASE64="\$(base64 -i path/to/service-account.json)" \
 source "\$HOME/drive/nomac/start.sh" "Your Name" "you@example.com" "https://github.com"
 ```
 
+### 3. Local Windows/Linux Sync & iOS/macOS Deployment
+
+Developing locally on **Windows or Linux**? You can sync your local project directory in real time using `nomac sync . --watch` and pass the synced folder path (defaulting to `$HOME/drive/src/<folder>`) as the 3rd argument to `start.sh`:
+
+```bash
+source "\$HOME/drive/nomac/start.sh" "Your Name" "you@example.com" "\$HOME/drive/src/your_app"
+```
+
+For full instructions on **real-time file syncing**, **code signing**, **TestFlight uploads**, and **App Store promotion** with Shorebird, see **[IOS_DEPLOYMENT.md](./IOS_DEPLOYMENT.md)**.
+
+
 ## Environment Variables Reference
 
 | Variable | Required | Description | How to Obtain |
