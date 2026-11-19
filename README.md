@@ -1,6 +1,6 @@
-# Ephemeral macOS Flutter & Android Development Setup
+# Ephemeral macOS Flutter Development Environment Setup (nomac)
 
-A zero-footprint bootstrap script (`start.sh`) built for disposable macOS containers. Only `start.sh` resides on your persistent drive (`$HOME/drive/nomac/start.sh`). Every toolchain, SDK, credential, and cloned repository lives on the container's ephemeral disk and is automatically wiped when the container closes.
+A zero-footprint bootstrap script (`start.sh`) built for disposable macOS containers on `nomac.app.` Only `start.sh` resides on your persistent drive (`$HOME/drive/nomac/start.sh`). Every toolchain, SDK, credential, and cloned repository lives on the container's ephemeral disk and is automatically wiped when the container closes.
 
 ## Installed Tools
 
@@ -18,7 +18,7 @@ A zero-footprint bootstrap script (`start.sh`) built for disposable macOS contai
 Source `start.sh` and pass your Git `user.name`, `user.email`, and optional repository URL. If tokens are omitted, interactive authentication prompts will run where supported:
 
 ```bash
-source "\$HOME/drive/nomac/start.sh" "Your Name" "you@example.com" "https://github.com"
+source "$HOME/drive/nomac/start.sh" "Your Name" "you@example.com" "https://github.com"
 ```
 
 > **Note:** Always run with `source` (or `.`) so exported `PATH` variables apply immediately and your shell automatically `cd`s into `$HOME/<repo-name>`.
