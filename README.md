@@ -24,7 +24,7 @@ source "$HOME/drive/nomac/start.sh" "Your Name" "you@example.com" "https://githu
 > **Note:** Always run with `source` (or `.`) so exported `PATH` variables apply immediately and your shell automatically `cd`s into `$HOME/<repo-name>`.
 
 ### 2. Headless / Non-Interactive Setup (With Tokens)
-Pass your authentication tokens as environment variables when sourcing `start.sh`:
+Configure your secrets in the nomac dashboard or pass your authentication tokens as environment variables when sourcing `start.sh`:
 
 ```bash
 GH_TOKEN="ghp_your_github_token" \
