@@ -39,7 +39,7 @@ ln -sfn "$COCOAPODS_CACHE_DIR" "$HOME/Library/Caches/CocoaPods"
 # 3. Install or Load Persistent Homebrew in ~/drive/tools/homebrew
 if [[ ! -x "$BREW_PREFIX/bin/brew" ]]; then
   echo "Installing persistent Homebrew into $BREW_PREFIX..."
-  git clone --depth=1 https://github.com "$BREW_PREFIX"
+  git clone --depth=1 https://github.com/Homebrew/brew "$BREW_PREFIX"
 fi
 eval "$("$BREW_PREFIX/bin/brew" shellenv)"
 
@@ -74,7 +74,7 @@ fi
 # 5. Clone & Bootstrap Shorebird in ~/drive/tools/shorebird
 if [[ ! -d "$SHOREBIRD_DIR/.git" ]]; then
   echo "Cloning Shorebird into $SHOREBIRD_DIR..."
-  git clone https://github.com -b stable "$SHOREBIRD_DIR"
+  git clone https://github.com/shorebirdtech/shorebird -b stable "$SHOREBIRD_DIR"
 fi
 
 export PATH="$SHOREBIRD_DIR/bin:$PUB_CACHE_DIR/bin:$PATH"
