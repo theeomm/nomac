@@ -55,7 +55,7 @@ BREW_PACKAGES=(
 for pkg in "${BREW_PACKAGES[@]}"; do
   if ! brew list "$pkg" &>/dev/null; then
     echo "Installing $pkg..."
-    brew install "$pkg"
+    yes | brew install "$pkg"
   else
     echo "$pkg already persisted in $BREW_PREFIX."
   fi
